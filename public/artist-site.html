@@ -370,6 +370,8 @@
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(48px, 6vw, 80px);
     line-height: 0.9;
+    cursor: pointer;
+    user-select: none;
   }
 
   .tracks-title span {
@@ -377,8 +379,9 @@
     -webkit-text-stroke: 1px rgba(240,236,228,0.3);
   }
 
-  /* UPLOAD ZONE */
+  /* UPLOAD ZONE - HIDDEN BY DEFAULT FOR SECURITY */
   .upload-zone {
+    display: none;
     border: 1px dashed var(--gris3);
     padding: 48px;
     text-align: center;
@@ -387,6 +390,10 @@
     transition: all 0.3s;
     position: relative;
     background: var(--noir2);
+  }
+
+  .upload-zone.admin-visible {
+    display: block !important;
   }
 
   .upload-zone:hover, .upload-zone.dragging {
@@ -513,6 +520,7 @@
   }
 
   .btn-delete {
+    display: none; /* Hidden by default */
     width: 36px; height: 36px;
     border-radius: 50%;
     border: 1px solid transparent;
@@ -524,6 +532,10 @@
     justify-content: center;
     font-size: 12px;
     transition: all 0.2s;
+  }
+
+  body.admin-mode .btn-delete {
+    display: flex; /* Only visible to you */
   }
 
   .btn-delete:hover {
@@ -842,7 +854,6 @@
 <div class="cursor" id="cursor"></div>
 <div class="toast" id="toast"></div>
 
-<!-- NAV -->
 <nav>
   <a href="#hero" class="nav-logo" id="artist-name-nav">Eylow</a>
   <ul class="nav-links">
@@ -852,7 +863,6 @@
   </ul>
 </nav>
 
-<!-- HERO -->
 <section id="hero">
   <div class="hero-bg"></div>
   <div class="hero-lines"></div>
@@ -872,7 +882,6 @@
   </div>
 </section>
 
-<!-- ABOUT -->
 <section id="about">
   <div>
     <div class="section-label reveal">À Propos</div>
@@ -912,16 +921,14 @@
   </div>
 </section>
 
-<!-- TRACKS -->
 <section id="tracks">
   <div class="tracks-header reveal">
     <div>
       <div class="section-label">Discographie</div>
-      <h2 class="tracks-title">MES<br><span>SONS</span></h2>
+      <h2 class="tracks-title" id="admin-trigger">MES<br><span>SONS</span></h2>
     </div>
   </div>
 
-  <!-- Upload Zone -->
   <div class="upload-zone reveal" id="upload-zone">
     <input type="file" id="file-input" accept="audio/*" multiple>
     <div class="upload-icon">🎵</div>
@@ -929,7 +936,6 @@
     <div class="upload-hint">ou cliquez pour sélectionner · <span>MP3, WAV, FLAC, OGG</span></div>
   </div>
 
-  <!-- Track List -->
   <div class="track-list" id="track-list">
     <div class="tracks-empty" id="empty-state">
       <div class="tracks-empty-icon">🎧</div>
@@ -938,7 +944,6 @@
   </div>
 </section>
 
-<!-- CONTACT -->
 <section id="contact">
   <div class="section-label reveal" style="justify-content:center">Contact</div>
   <h2 class="contact-title reveal">
@@ -960,7 +965,6 @@
   <span class="footer-copy">© 2024 — Tous droits réservés</span>
 </footer>
 
-<!-- PLAYER BAR -->
 <div id="player-bar">
   <div class="waveform-mini" id="waveform-mini"></div>
   <div class="player-track-info">
@@ -987,6 +991,31 @@
 </div>
 
 <script>
+// ========== SECURITY & ADMIN MODE ==========
+const PASSKEY = "eylow123"; // Ton mot de passe secret pour uploader/gérer tes sons
+let isAdmin = false;
+
+document.getElementById('admin-trigger').addEventListener('dblclick', () => {
+  if (!isAdmin) {
+    const password = prompt("Entrez le mot de passe d'administration :");
+    if (password === PASSKEY) {
+      isAdmin = true;
+      document.body.classList.add('admin-mode');
+      document.getElementById('upload-zone').classList.add('admin-visible');
+      showToast("Mode Administration Activé");
+      renderTracks();
+    } else if (password !== null) {
+      showToast("Mot de passe incorrect");
+    }
+  } else {
+    isAdmin = false;
+    document.body.classList.remove('admin-mode');
+    document.getElementById('upload-zone').classList.remove('admin-visible');
+    showToast("Mode Public Activé");
+    renderTracks();
+  }
+});
+
 // ========== CUSTOM CURSOR ==========
 const cursor = document.getElementById('cursor');
 document.addEventListener('mousemove', e => {
@@ -1041,7 +1070,6 @@ function showToast(msg) {
 
 // ========== AUDIO ENGINE ==========
 let tracks = JSON.parse(localStorage.getItem('artist-tracks') || '[]');
-// Store actual audio as object URLs (session only)
 let audioURLs = {};
 let currentIndex = -1;
 let audio = new Audio();
@@ -1056,7 +1084,6 @@ function formatTime(sec) {
 }
 
 function saveTracks() {
-  // Save metadata only (not blob URLs which are session-only)
   const meta = tracks.map(t => ({ id: t.id, name: t.name, duration: t.duration, size: t.size }));
   localStorage.setItem('artist-tracks', JSON.stringify(meta));
 }
@@ -1195,7 +1222,6 @@ audio.addEventListener('timeupdate', () => {
   document.getElementById('time-current').textContent = formatTime(audio.currentTime);
   document.getElementById('time-total').textContent = formatTime(audio.duration);
 
-  // Track item progress bar
   if (currentIndex >= 0 && tracks[currentIndex]) {
     const pb = document.getElementById('progress-' + tracks[currentIndex].id);
     if (pb) pb.style.width = pct + '%';
@@ -1260,36 +1286,32 @@ function handleFiles(files) {
     const url = URL.createObjectURL(file);
     const sizeMB = (file.size / 1048576).toFixed(1) + ' MB';
 
-    // Get duration
     const tempAudio = new Audio(url);
     tempAudio.addEventListener('loadedmetadata', () => {
-      const dur = formatTime(tempAudio.duration);
-      const track = { id, name: file.name.replace(/\.[^/.]+$/, ''), duration: dur, size: sizeMB };
-      tracks.push(track);
+      const durationStr = formatTime(tempAudio.duration);
+      tracks.push({ id, name: file.name, duration: durationStr, size: sizeMB });
       audioURLs[id] = url;
-      saveTracks();
-      renderTracks();
-    });
-    tempAudio.addEventListener('error', () => {
-      const track = { id, name: file.name.replace(/\.[^/.]+$/, ''), duration: '—', size: sizeMB };
-      tracks.push(track);
-      audioURLs[id] = url;
+      
       saveTracks();
       renderTracks();
     });
     added++;
   });
-  if (added > 0) showToast(`${added} fichier${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''}`);
+  if(added > 0) showToast(`${added} son(s) importé(s)`);
 }
 
-fileInput.addEventListener('change', e => handleFiles(e.target.files));
+fileInput.addEventListener('change', e => {
+  handleFiles(e.target.files);
+});
 
 uploadZone.addEventListener('dragover', e => {
   e.preventDefault();
   uploadZone.classList.add('dragging');
 });
 
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('dragging');
+});
 
 uploadZone.addEventListener('drop', e => {
   e.preventDefault();
@@ -1297,7 +1319,7 @@ uploadZone.addEventListener('drop', e => {
   handleFiles(e.dataTransfer.files);
 });
 
-// ========== INIT ==========
+// Initial Load
 renderTracks();
 </script>
 </body>
