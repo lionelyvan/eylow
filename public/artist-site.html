@@ -379,7 +379,7 @@
     -webkit-text-stroke: 1px rgba(240,236,228,0.3);
   }
 
-  /* UPLOAD ZONE - HIDDEN BY DEFAULT FOR SECURITY */
+  /* UPLOAD ZONE */
   .upload-zone {
     display: none;
     border: 1px dashed var(--gris3);
@@ -520,7 +520,7 @@
   }
 
   .btn-delete {
-    display: none; /* Hidden by default */
+    display: none;
     width: 36px; height: 36px;
     border-radius: 50%;
     border: 1px solid transparent;
@@ -535,7 +535,7 @@
   }
 
   body.admin-mode .btn-delete {
-    display: flex; /* Only visible to you */
+    display: flex;
   }
 
   .btn-delete:hover {
@@ -848,6 +848,10 @@
     .hero-viz { display: none; }
   }
 </style>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 </head>
 <body>
 
@@ -869,7 +873,7 @@
 
   <div class="hero-viz" id="hero-viz"></div>
 
-  <div class="hero-tag">Artiste Indépendant</div>
+  <div class="hero-tag">Artiste Indépendant · 2024</div>
 
   <h1 class="hero-title">
     <span id="hero-name-outline">MON</span>UNIVERS SONORE</h1>
@@ -991,8 +995,22 @@
 </div>
 
 <script>
+// ========== CONFIGURATION FIREBASE ==========
+const firebaseConfig = {
+  apiKey: "TON_API_KEY",
+  authDomain: "TON_AUTH_DOMAIN",
+  projectId: "TON_PROJECT_ID",
+  storageBucket: "TON_STORAGE_BUCKET",
+  messagingSenderId: "TON_MESSAGING_SENDER_ID",
+  appId: "TON_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
 // ========== SECURITY & ADMIN MODE ==========
-const PASSKEY = "eylow123"; // Ton mot de passe secret pour uploader/gérer tes sons
+const PASSKEY = "eylow123";
 let isAdmin = false;
 
 document.getElementById('admin-trigger').addEventListener('dblclick', () => {
@@ -1068,9 +1086,8 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ========== AUDIO ENGINE ==========
-let tracks = JSON.parse(localStorage.getItem('artist-tracks') || '[]');
-let audioURLs = {};
+// ========== AUDIO ENGINE REAL-TIME DB ==========
+let tracks = [];
 let currentIndex = -1;
 let audio = new Audio();
 audio.volume = 0.8;
@@ -1083,10 +1100,17 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function saveTracks() {
-  const meta = tracks.map(t => ({ id: t.id, name: t.name, duration: t.duration, size: t.size }));
-  localStorage.setItem('artist-tracks', JSON.stringify(meta));
-}
+// Écoute en temps réel les changements dans Firestore
+db.collection("tracks").orderBy("timestamp", "asc").onSnapshot(snapshot => {
+  tracks = [];
+  snapshot.forEach(doc => {
+    tracks.push({ id: doc.id, ...doc.data() });
+  });
+  renderTracks();
+}, err => {
+  console.error("Erreur Firestore : ", err);
+  showToast("Erreur lors de la récupération des pistes");
+});
 
 function renderTracks() {
   const list = document.getElementById('track-list');
@@ -1107,8 +1131,6 @@ function renderTracks() {
     item.className = 'track-item' + (i === currentIndex ? ' playing' : '');
     item.dataset.index = i;
 
-    const hasAudio = !!audioURLs[track.id];
-
     item.innerHTML = `
       <div class="track-num">
         ${i === currentIndex && isPlaying
@@ -1117,7 +1139,7 @@ function renderTracks() {
       </div>
       <div class="track-info">
         <div class="track-name">${track.name}</div>
-        <div class="track-meta">${track.size || '—'} · ${hasAudio ? 'prêt' : 'rechargez le fichier'}</div>
+        <div class="track-meta">${track.size || '—'} · Disponible</div>
       </div>
       <div class="track-duration">${track.duration || '—'}</div>
       <div class="track-controls">
@@ -1148,11 +1170,6 @@ function playTrack(index) {
   const track = tracks[index];
   if (!track) return;
 
-  if (!audioURLs[track.id]) {
-    showToast('Rechargez ce fichier depuis votre appareil');
-    return;
-  }
-
   if (currentIndex === index && isPlaying) {
     audio.pause();
     isPlaying = false;
@@ -1162,7 +1179,7 @@ function playTrack(index) {
   }
 
   if (currentIndex !== index) {
-    audio.src = audioURLs[track.id];
+    audio.src = track.url;
     currentIndex = index;
   }
 
@@ -1174,7 +1191,7 @@ function playTrack(index) {
     renderTracks();
     animateWaveform(true);
   }).catch(err => {
-    showToast('Erreur de lecture');
+    showToast('Erreur lors de la lecture du fichier distant');
     console.error(err);
   });
 }
@@ -1195,7 +1212,9 @@ function animateWaveform(active) {
 }
 
 function deleteTrack(index) {
+  if (!isAdmin) return;
   const track = tracks[index];
+  
   if (index === currentIndex) {
     audio.pause();
     audio.src = '';
@@ -1203,17 +1222,23 @@ function deleteTrack(index) {
     currentIndex = -1;
     document.getElementById('player-bar').classList.remove('visible');
     animateWaveform(false);
-  } else if (index < currentIndex) {
-    currentIndex--;
   }
-  delete audioURLs[track.id];
-  tracks.splice(index, 1);
-  saveTracks();
-  renderTracks();
-  showToast('Track supprimée');
+
+  showToast('Suppression en cours...');
+
+  // 1. Supprime le fichier physique du Storage
+  storage.refFromURL(track.url).delete().then(() => {
+    // 2. Supprime la référence dans Firestore
+    return db.collection("tracks").doc(track.id).delete();
+  }).then(() => {
+    showToast('Track supprimée avec succès');
+  }).catch(err => {
+    console.error("Erreur de suppression : ", err);
+    showToast("Erreur lors de la suppression");
+  });
 }
 
-// Audio events
+// Audio Engine Native Events
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = (audio.currentTime / audio.duration) * 100;
@@ -1239,7 +1264,7 @@ audio.addEventListener('ended', () => {
   }
 });
 
-// Player controls
+// Player controls UI events
 document.getElementById('btn-play-main').addEventListener('click', () => {
   if (currentIndex === -1 && tracks.length > 0) { playTrack(0); return; }
   if (isPlaying) {
@@ -1248,7 +1273,7 @@ document.getElementById('btn-play-main').addEventListener('click', () => {
     document.getElementById('btn-play-main').textContent = '▶';
     animateWaveform(false);
   } else {
-    audio.play();
+    audio.play().catch(() => showToast("Impossible de lancer la lecture"));
     isPlaying = true;
     document.getElementById('btn-play-main').textContent = '⏸';
     animateWaveform(true);
@@ -1274,30 +1299,45 @@ document.getElementById('volume-slider').addEventListener('input', e => {
   audio.volume = e.target.value;
 });
 
-// ========== FILE UPLOAD ==========
+// ========== SECURE FILE UPLOAD TO STORAGE & FIRESTORE ==========
 const fileInput = document.getElementById('file-input');
 const uploadZone = document.getElementById('upload-zone');
 
 function handleFiles(files) {
-  let added = 0;
+  if (!isAdmin) return;
+  
   Array.from(files).forEach(file => {
     if (!file.type.startsWith('audio/')) return;
-    const id = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-    const url = URL.createObjectURL(file);
+    
+    showToast(`Téléchargement de : ${file.name}`);
     const sizeMB = (file.size / 1048576).toFixed(1) + ' MB';
+    const storageRef = storage.ref(`musiques/${Date.now()}-${file.name}`);
 
-    const tempAudio = new Audio(url);
-    tempAudio.addEventListener('loadedmetadata', () => {
-      const durationStr = formatTime(tempAudio.duration);
-      tracks.push({ id, name: file.name, duration: durationStr, size: sizeMB });
-      audioURLs[id] = url;
-      
-      saveTracks();
-      renderTracks();
+    // Étape 1 : Envoyer sur Firebase Storage
+    storageRef.put(file).then(snapshot => {
+      return snapshot.ref.getDownloadURL();
+    }).then(downloadURL => {
+      // Obtenir la durée réelle du son
+      const tempAudio = new Audio(downloadURL);
+      tempAudio.addEventListener('loadedmetadata', () => {
+        const durationStr = formatTime(tempAudio.duration);
+        
+        // Étape 2 : Sauvegarder dans Firestore pour tous les visiteurs
+        db.collection("tracks").add({
+          name: file.name,
+          url: downloadURL,
+          duration: durationStr,
+          size: sizeMB,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+          showToast(`"${file.name}" est en ligne et visible par tous !`);
+        });
+      });
+    }).catch(err => {
+      console.error("Erreur d'upload : ", err);
+      showToast("Erreur lors de la mise en ligne");
     });
-    added++;
   });
-  if(added > 0) showToast(`${added} son(s) importé(s)`);
 }
 
 fileInput.addEventListener('change', e => {
@@ -1318,9 +1358,6 @@ uploadZone.addEventListener('drop', e => {
   uploadZone.classList.remove('dragging');
   handleFiles(e.dataTransfer.files);
 });
-
-// Initial Load
-renderTracks();
 </script>
 </body>
 </html>
