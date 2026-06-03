@@ -497,7 +497,7 @@
     color: var(--gris3);
   }
 
-  .track-controls { display: flex; gap: 8px; }
+  .track-controls { display: flex; gap: 8px; align-items: center; }
 
   .btn-play {
     width: 36px; height: 36px;
@@ -617,6 +617,26 @@
 
   .btn-ctrl.main:hover { border-color: var(--accent); }
 
+  /* LYRICS BUTTON */
+  .btn-lyrics {
+    background: none;
+    border: 1px solid var(--gris2);
+    border-radius: 4px;
+    color: var(--blanc2);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none; /* Cache par défaut si pas de paroles */
+  }
+  .btn-lyrics:hover, .btn-lyrics.active {
+    color: var(--noir);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
   .player-timeline { flex: 2; display: flex; align-items: center; gap: 12px; }
 
   .player-time {
@@ -687,6 +707,68 @@
     background: var(--accent);
     border-radius: 1px;
     opacity: 0.5;
+  }
+
+  /* LYRICS PANEL (SPOTIFY HIGH-VALUE DESIGN) */
+  #lyrics-panel {
+    position: fixed;
+    bottom: 80px; /* Juste au dessus du player bar */
+    left: 0; right: 0;
+    height: calc(100vh - 80px);
+    background: linear-gradient(to top, #040404 0%, #0d0d0d 100%);
+    z-index: 199;
+    transform: translateY(120%);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #lyrics-panel.open {
+    transform: translateY(0);
+  }
+
+  .lyrics-header {
+    padding: 32px 48px 16px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, #0d0d0d, transparent);
+  }
+
+  .lyrics-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .btn-close-lyrics {
+    background: none;
+    border: none;
+    color: var(--blanc2);
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .btn-close-lyrics:hover { color: var(--accent); }
+
+  .lyrics-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 48px 80px 48px;
+    font-size: clamp(20px, 4vw, 36px);
+    line-height: 1.6;
+    font-weight: 500;
+    color: var(--blanc2);
+    white-space: pre-wrap;
+    text-align: left;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gris2) transparent;
   }
 
   /* CONTACT */
@@ -833,19 +915,50 @@
     transform: translateY(0);
   }
 
-  /* MOBILE */
+  /* RESPONSIVE & MOBILE DESIGN */
   @media (max-width: 768px) {
     nav { padding: 20px 24px; }
     .nav-links { display: none; }
     #hero { padding: 80px 24px; }
-    #about { grid-template-columns: 1fr; padding: 80px 24px; }
+    #about { grid-template-columns: 1fr; padding: 80px 24px; gap: 40px; }
     .about-photo { display: none; }
     #tracks { padding: 80px 24px; }
     #contact { padding: 80px 24px; }
-    footer { padding: 24px; padding-bottom: 100px; flex-direction: column; gap: 12px; }
-    #player-bar { padding: 12px 20px; gap: 16px; }
+    footer { padding: 24px; padding-bottom: 120px; flex-direction: column; gap: 12px; }
+    
+    /* Adaptations track item mobile */
+    .track-item {
+      grid-template-columns: 30px 1fr auto;
+      padding: 16px;
+      gap: 12px;
+    }
+    .track-duration { display: none; } /* On cache la durée brute pour aérer */
+
+    /* Player bar mobile hyper optimisé */
+    #player-bar { 
+      padding: 12px 16px; 
+      gap: 12px;
+      bottom: 0;
+      background: rgba(10,10,10,0.99);
+    }
     .player-timeline { display: none; }
     .hero-viz { display: none; }
+    .waveform-mini { display: none; }
+    .volume-control { display: none; } /* Pas de régulateur de volume physique sur mobile (natif au téléphone) */
+    
+    .player-controls { gap: 8px; }
+    .btn-ctrl { width: 32px; height: 32px; font-size: 14px; }
+    .btn-ctrl.main { width: 40px; height: 40px; font-size: 16px; }
+    .btn-lyrics { padding: 4px 8px; font-size: 9px; }
+
+    /* Lyrics Panel Mobile plein écran */
+    #lyrics-panel {
+      bottom: 0;
+      height: 100vh;
+      border-top: none;
+    }
+    .lyrics-header { padding: 24px 24px 12px 24px; }
+    .lyrics-content { padding: 12px 24px 100px 24px; font-size: 24px; font-weight: 400; }
   }
 </style>
 
@@ -871,7 +984,7 @@
 
   <div class="hero-viz" id="hero-viz"></div>
 
-  <div class="hero-tag">Artiste Indépendant · 2024</div>
+  <div class="hero-tag">Artiste Indépendant · 2026</div>
 
   <h1 class="hero-title">
     <span id="hero-name-outline">MON</span>UNIVERS SONORE</h1>
@@ -892,7 +1005,7 @@
       <em>ESSENCE</em>
     </h2>
     <p class="about-text reveal" id="about-text1">
-      Musicien depuis l'enfance, je compose des univers sonores qui transcendents les genres. Ma musique est un voyage entre la mélodie et l'électronique, l'ambient et les rythmes organiques du rap français et du cameroun ma terre natale.
+      Musicien depuis l'enfance, je compose des univers sonores qui transcendent les genres. Ma musique est un voyage entre la mélodie et l'électronique, l'ambient et les rythmes organiques du rap français et du cameroun ma terre natale.
     </p>
     <p class="about-text reveal" id="about-text2">
       Chaque son est une décision consciente, un choix délibéré.
@@ -907,7 +1020,7 @@
         <div class="stat-label">EPs</div>
       </div>
       <div class="stat">
-        <div class="stat-num" id="stat3"> plus de 5</div>
+        <div class="stat-num" id="stat3">plus de 5</div>
         <div class="stat-label">Années</div>
       </div>
     </div>
@@ -964,8 +1077,16 @@
 
 <footer>
   <span class="footer-logo" id="footer-name">ARTISTE</span>
-  <span class="footer-copy">© 2024 — Tous droits réservés</span>
+  <span class="footer-copy">© 2026 — Tous droits réservés</span>
 </footer>
+
+<div id="lyrics-panel">
+  <div class="lyrics-header">
+    <div class="lyrics-title">LYRICS</div>
+    <button class="btn-close-lyrics" id="btn-close-lyrics" title="Fermer">✕</button>
+  </div>
+  <div class="lyrics-content" id="lyrics-content"></div>
+</div>
 
 <div id="player-bar">
   <div class="waveform-mini" id="waveform-mini"></div>
@@ -973,6 +1094,9 @@
     <div class="player-track-name" id="player-track-name">—</div>
     <div class="player-track-status">EN LECTURE</div>
   </div>
+  
+  <button class="btn-lyrics" id="btn-player-lyrics">🎤 LYRICS</button>
+
   <div class="player-controls">
     <button class="btn-ctrl" id="btn-prev" title="Précédent">⏮</button>
     <button class="btn-ctrl main" id="btn-play-main" title="Lecture/Pause">▶</button>
@@ -998,10 +1122,7 @@ let RAW_URL = "https://ohnchjlbfzsfbdoytohm.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9obmNoamxiZnpzZmJkb3l0b2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODAzMjQsImV4cCI6MjA5NjA1NjMyNH0.UaGJYYjh2P89BrEy8JRtqofkLd3dyKfzA43wgC5IzD0";
 
 const SUPABASE_URL = RAW_URL.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
-
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Nom du bucket synchronisé avec ton dashboard Supabase
 const BUCKET_NAME = "musiques";
 
 // ========== SECURITY & ADMIN MODE ==========
@@ -1035,10 +1156,13 @@ document.addEventListener('mousemove', e => {
   cursor.style.left = e.clientX + 'px';
   cursor.style.top = e.clientY + 'px';
 });
-document.querySelectorAll('a, button, .upload-zone, .track-item, .progress-container').forEach(el => {
-  el.addEventListener('mouseenter', () => cursor.classList.add('expanded'));
-  el.addEventListener('mouseleave', () => cursor.classList.remove('expanded'));
-});
+function initCursorHover() {
+  document.querySelectorAll('a, button, .upload-zone, .track-item, .progress-container').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('expanded'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('expanded'));
+  });
+}
+initCursorHover();
 
 // ========== HERO VIZ ==========
 const heroViz = document.getElementById('hero-viz');
@@ -1077,8 +1201,12 @@ revealEls.forEach(el => observer.observe(el));
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.style.transform = 'translateX(0)';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => {
+    t.classList.remove('show');
+    t.style.transform = 'translateX(120%)';
+  }, 3000);
 }
 
 // ========== AUDIO ENGINE REAL-TIME DB ==========
@@ -1176,6 +1304,7 @@ function renderTracks() {
     item.addEventListener('click', () => playTrack(i));
     list.appendChild(item);
   });
+  initCursorHover();
 }
 
 function playTrack(index) {
@@ -1193,6 +1322,7 @@ function playTrack(index) {
   if (currentIndex !== index) {
     audio.src = track.url;
     currentIndex = index;
+    closeLyricsPanel(); // Ferme le panneau précédent si on change de track
   }
 
   audio.play().then(() => {
@@ -1200,6 +1330,16 @@ function playTrack(index) {
     document.getElementById('btn-play-main').textContent = '⏸';
     document.getElementById('player-track-name').textContent = track.name;
     document.getElementById('player-bar').classList.add('visible');
+    
+    // Gestion visuelle du bouton Lyrics dans le lecteur global
+    const btnPlayerLyrics = document.getElementById('btn-player-lyrics');
+    if (track.lyrics && track.lyrics.trim() !== "") {
+      btnPlayerLyrics.style.display = "block";
+    } else {
+      btnPlayerLyrics.style.display = "none";
+      closeLyricsPanel();
+    }
+
     renderTracks();
     animateWaveform(true);
   }).catch(err => {
@@ -1212,8 +1352,6 @@ function animateWaveform(active) {
   const bars = waveformMini.querySelectorAll('.wave-bar');
   bars.forEach(b => {
     if (active) {
-      const h = 4 + Math.random() * 20;
-      b.style.height = h + 'px';
       b.style.animation = `vizAnimate ${0.4 + Math.random() * 0.6}s ease-in-out infinite`;
       b.style.animationDelay = (Math.random() * 0.4) + 's';
     } else {
@@ -1232,6 +1370,42 @@ function formatBytes(bytes, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// ========== LOGIQUE DES PAROLES (LYRICS) ==========
+const lyricsPanel = document.getElementById('lyrics-panel');
+const lyricsContent = document.getElementById('lyrics-content');
+const btnPlayerLyrics = document.getElementById('btn-player-lyrics');
+const btnCloseLyrics = document.getElementById('btn-close-lyrics');
+
+btnPlayerLyrics.addEventListener('click', () => {
+  if (lyricsPanel.classList.contains('open')) {
+    closeLyricsPanel();
+  } else {
+    openLyricsPanel();
+  }
+});
+
+btnCloseLyrics.addEventListener('click', closeLyricsPanel);
+
+function openLyricsPanel() {
+  const currentTrack = tracks[currentIndex];
+  if (currentTrack && currentTrack.lyrics) {
+    lyricsContent.textContent = currentTrack.lyrics;
+    lyricsPanel.classList.add('open');
+    btnPlayerLyrics.classList.add('active');
+    // Sur mobile, on empêche le défilement du body en arrière-plan
+    if (window.innerWidth <= 768) {
+      document.body.style.overflow = 'hidden';
+    }
+  }
+}
+
+function closeLyricsPanel() {
+  lyricsPanel.classList.remove('open');
+  btnPlayerLyrics.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ========== GESTION DES UPLOADS ET DU LECTEUR TIMELINE ==========
 document.getElementById('file-input').addEventListener('change', async (e) => {
   if (!isAdmin) return;
   const files = e.target.files;
@@ -1243,7 +1417,6 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
     
-    // Changement ici : utilisation de la variable BUCKET_NAME ("musiques")
     const { data: storageData, error: storageError } = await supabaseClient.storage
       .from(BUCKET_NAME)
       .upload(fileName, file);
@@ -1254,12 +1427,14 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
       continue;
     }
 
-    // Changement ici également
     const { data: urlData } = supabaseClient.storage
       .from(BUCKET_NAME)
       .getPublicUrl(fileName);
 
     const publicUrl = urlData.publicUrl;
+
+    // Invite Admin pour saisir les paroles en option (Méthode 1)
+    const lyricsInput = prompt(`[Optionnel] Saisissez ou collez les paroles pour "${file.name}" : \n(Laissez vide si instrumental)`);
 
     const tempAudio = new Audio(publicUrl);
     tempAudio.addEventListener('loadedmetadata', async () => {
@@ -1268,42 +1443,36 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
 
       const { error: dbError } = await supabaseClient
         .from('tracks')
-        .insert([
-          { name: file.name, url: publicUrl, storage_path: fileName, size: sizeStr, duration: durationStr }
-        ]);
+        .insert([{
+          name: file.name.replace(`.${fileExt}`, ''),
+          url: publicUrl,
+          duration: durationStr,
+          size: sizeStr,
+          storage_path: fileName,
+          lyrics: lyricsInput ? lyricsInput.trim() : null
+        }]);
 
       if (dbError) {
         console.error(dbError);
-        showToast("Erreur d'enregistrement Base de données");
+        showToast("Erreur d'enregistrement BDD");
       } else {
-        showToast("Morceau ajouté avec succès");
+        showToast("Morceau ajouté avec succès !");
       }
     });
   }
 });
 
+// Supprimer un morceau
 async function deleteTrack(index) {
-  if (!isAdmin) return;
   const track = tracks[index];
-  
-  if (index === currentIndex) {
-    audio.pause();
-    audio.src = '';
-    isPlaying = false;
-    currentIndex = -1;
-    document.getElementById('player-bar').classList.remove('visible');
-    animateWaveform(false);
-  }
+  if (!track) return;
 
-  showToast('Suppression en cours...');
+  if (!confirm(`Supprimer définitivement "${track.name}" ?`)) return;
 
-  // Changement ici : nettoyage dans le bon bucket ("musiques")
-  const { error: storageError } = await supabaseClient.storage
-    .from(BUCKET_NAME)
-    .remove([track.storage_path]);
+  showToast("Suppression...");
 
-  if (storageError) {
-    console.error("Erreur storage delete:", storageError);
+  if (track.storage_path) {
+    await supabaseClient.storage.from(BUCKET_NAME).remove([track.storage_path]);
   }
 
   const { error: dbError } = await supabaseClient
@@ -1312,38 +1481,22 @@ async function deleteTrack(index) {
     .eq('id', track.id);
 
   if (dbError) {
-    console.error("Erreur DB delete:", dbError);
-    showToast("Erreur lors de la suppression");
+    console.error(dbError);
+    showToast("Erreur BDD");
   } else {
-    showToast('Track supprimée avec succès');
+    showToast("Morceau supprimé");
+    if (currentIndex === index) {
+      audio.pause();
+      isPlaying = false;
+      currentIndex = -1;
+      document.getElementById('player-bar').classList.remove('visible');
+      closeLyricsPanel();
+    }
+    listenTracks();
   }
 }
 
-audio.addEventListener('timeupdate', () => {
-  if (!audio.duration) return;
-  const pct = (audio.currentTime / audio.duration) * 100;
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-thumb').style.left = pct + '%';
-  document.getElementById('time-current').textContent = formatTime(audio.currentTime);
-  document.getElementById('time-total').textContent = formatTime(audio.duration);
-
-  if (currentIndex >= 0 && tracks[currentIndex]) {
-    const pb = document.getElementById('progress-' + tracks[currentIndex].id);
-    if (pb) pb.style.width = pct + '%';
-  }
-});
-
-audio.addEventListener('ended', () => {
-  if (currentIndex < tracks.length - 1) {
-    playTrack(currentIndex + 1);
-  } else {
-    isPlaying = false;
-    document.getElementById('btn-play-main').textContent = '▶';
-    animateWaveform(false);
-    renderTracks();
-  }
-});
-
+// Logic player bar controls
 document.getElementById('btn-play-main').addEventListener('click', () => {
   if (currentIndex === -1 && tracks.length > 0) {
     playTrack(0);
@@ -1353,25 +1506,60 @@ document.getElementById('btn-play-main').addEventListener('click', () => {
 });
 
 document.getElementById('btn-prev').addEventListener('click', () => {
-  if (currentIndex > 0) {
-    playTrack(currentIndex - 1);
-  }
+  if (tracks.length === 0) return;
+  let nextIdx = currentIndex - 1;
+  if (nextIdx < 0) nextIdx = tracks.length - 1;
+  playTrack(nextIdx);
 });
 
 document.getElementById('btn-next').addEventListener('click', () => {
-  if (currentIndex < tracks.length - 1) {
-    playTrack(currentIndex + 1);
+  if (tracks.length === 0) return;
+  let nextIdx = currentIndex + 1;
+  if (nextIdx >= tracks.length) nextIdx = 0;
+  playTrack(nextIdx);
+});
+
+// Sync temps réel audio bar
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  
+  document.getElementById('progress-fill').style.width = `${pct}%`;
+  document.getElementById('progress-thumb').style.left = `${pct}%`;
+  document.getElementById('time-current').textContent = formatTime(audio.currentTime);
+  
+  // Tracklist mini bar progress sync
+  const activeTrack = tracks[currentIndex];
+  if (activeTrack) {
+    const miniBar = document.getElementById(`progress-${activeTrack.id}`);
+    if (miniBar) miniBar.style.width = `${pct}%`;
   }
 });
 
-document.getElementById('progress-container').addEventListener('click', e => {
+audio.addEventListener('loadedmetadata', () => {
+  document.getElementById('time-total').textContent = formatTime(audio.duration);
+});
+
+audio.addEventListener('ended', () => {
+  if (tracks.length === 0) return;
+  let nextIdx = currentIndex + 1;
+  if (nextIdx >= tracks.length) nextIdx = 0;
+  playTrack(nextIdx);
+});
+
+// Interaction clic barre de progression
+const progressContainer = document.getElementById('progress-container');
+progressContainer.addEventListener('click', (e) => {
   if (!audio.duration) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
+  const rect = progressContainer.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const width = rect.width;
+  const pct = clickX / width;
   audio.currentTime = pct * audio.duration;
 });
 
-document.getElementById('volume-slider').addEventListener('input', e => {
+// Slider Volume
+document.getElementById('volume-slider').addEventListener('input', (e) => {
   audio.volume = e.target.value;
 });
 </script>
