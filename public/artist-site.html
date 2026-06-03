@@ -1216,6 +1216,9 @@ let audio = new Audio();
 audio.volume = 0.8;
 let isPlaying = false;
 
+// Variable de contrôle pour éviter les conflits asynchrones d'écouteurs d'événements
+let currentCanPlayListener = null;
+
 function formatTime(sec) {
   if (!sec || isNaN(sec)) return '0:00';
   const m = Math.floor(sec / 60);
@@ -1279,289 +1282,280 @@ function renderTracks() {
       </div>
       <div class="track-info">
         <div class="track-name">${track.name}</div>
-        <div class="track-meta">${track.size || '—'} · Disponible</div>
+        <div class="track-meta">Eylow</div>
       </div>
-      <div class="track-duration">${track.duration || '—'}</div>
+      <div class="track-duration" id="duration-${track.id}">--:--</div>
       <div class="track-controls">
-        <button class="btn-play" title="Lecture">
-          ${i === currentIndex && isPlaying ? '⏸' : '▶'}
-        </button>
-        <button class="btn-delete" title="Supprimer">✕</button>
+        <button class="btn-play">${i === currentIndex && isPlaying ? '⏸' : '▶'}</button>
+        <button class="btn-delete" data-id="${track.id}" data-url="${track.file_url}">✕</button>
       </div>
-      <div class="track-progress" id="progress-${track.id}"></div>
+      <div class="track-progress" style="width: ${i === currentIndex ? (audio.currentTime / audio.duration * 100) + '%' : '0%'}"></div>
     `;
 
-    item.querySelector('.btn-play').addEventListener('click', e => {
-      e.stopPropagation();
-      playTrack(i);
+    const tempAudio = new Audio(track.file_url);
+    tempAudio.addEventListener('loadedmetadata', () => {
+      const dEl = document.getElementById(`duration-${track.id}`);
+      if (dEl) dEl.textContent = formatTime(tempAudio.duration);
     });
 
-    item.querySelector('.btn-delete').addEventListener('click', e => {
+    item.querySelector('.btn-play').addEventListener('click', (e) => {
       e.stopPropagation();
-      deleteTrack(i);
+      togglePlayTrack(i);
     });
 
-    item.addEventListener('click', () => playTrack(i));
+    item.querySelector('.btn-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = e.target.dataset.id;
+      const url = e.target.dataset.url;
+      if (confirm("Supprimer définitivement ce son ?")) {
+        deleteTrack(id, url);
+      }
+    });
+
+    item.addEventListener('click', () => {
+      togglePlayTrack(i);
+    });
+
     list.appendChild(item);
   });
   initCursorHover();
 }
 
-function playTrack(index) {
-  const track = tracks[index];
-  if (!track) return;
+function togglePlayTrack(index) {
+  if (index === currentIndex) {
+    if (isPlaying) {
+      audio.pause();
+      isPlaying = false;
+    } else {
+      // Sécurité : On utilise une promesse capturée pour éviter l'erreur de lecture
+      audio.play().catch(err => console.log("Lecture reportée : ", err.message));
+      isPlaying = true;
+    }
+    updatePlayerUI();
+  } else {
+    changeTrack(index);
+  }
+}
 
-  if (currentIndex === index && isPlaying) {
-    audio.pause();
+function changeTrack(index) {
+  if (index < 0 || index >= tracks.length) return;
+
+  // 1. Nettoyage de l'écouteur précédent s'il existe
+  if (currentCanPlayListener) {
+    audio.removeEventListener('canplay', currentCanPlayListener);
+  }
+
+  currentIndex = index;
+  const track = tracks[currentIndex];
+
+  // 2. Interrompre proprement l'audio en cours avant de changer de source
+  audio.pause();
+  audio.src = track.file_url;
+  audio.load(); 
+
+  document.getElementById('player-bar').classList.add('visible');
+  document.getElementById('player-track-name').textContent = track.name;
+
+  const btnLyrics = document.getElementById('btn-player-lyrics');
+  if (track.lyrics && track.lyrics.trim() !== "") {
+    btnLyrics.style.display = 'block';
+    document.getElementById('lyrics-content').textContent = track.lyrics;
+  } else {
+    btnLyrics.style.display = 'none';
+    closeLyrics();
+  }
+
+  // 3. Encapsuler la lecture dans l'événement 'canplay' pour s'assurer que le fichier distant est prêt
+  currentCanPlayListener = () => {
+    audio.play()
+      .then(() => {
+        isPlaying = true;
+        updatePlayerUI();
+      })
+      .catch(err => {
+        console.log("Lecture distante capturée proprement : ", err.message);
+      });
+  };
+
+  audio.addEventListener('canplay', currentCanPlayListener, { once: true });
+  updatePlayerUI();
+}
+
+function updatePlayerUI() {
+  const mainBtn = document.getElementById('btn-play-main');
+  mainBtn.textContent = isPlaying ? '⏸' : '▶';
+  renderTracks();
+}
+
+// ========== ENGINE CONTROLS ==========
+document.getElementById('btn-play-main').addEventListener('click', () => {
+  if (currentIndex === -1 && tracks.length > 0) {
+    changeTrack(0);
+  } else if (currentIndex !== -1) {
+    togglePlayTrack(currentIndex);
+  }
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => {
+  if (currentIndex > 0) changeTrack(currentIndex - 1);
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (currentIndex < tracks.length - 1) changeTrack(currentIndex + 1);
+});
+
+audio.addEventListener('timeupdate', () => {
+  const current = audio.currentTime;
+  const total = audio.duration || 0;
+
+  document.getElementById('time-current').textContent = formatTime(current);
+  document.getElementById('time-total').textContent = formatTime(total);
+
+  const pct = total > 0 ? (current / total * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-thumb').style.left = pct + '%';
+
+  const currentItem = document.querySelector(`.track-item[data-index="${currentIndex}"] .track-progress`);
+  if (currentItem) {
+    currentItem.style.width = pct + '%';
+  }
+});
+
+audio.addEventListener('ended', () => {
+  if (currentIndex < tracks.length - 1) {
+    changeTrack(currentIndex + 1);
+  } else {
     isPlaying = false;
-    document.getElementById('btn-play-main').textContent = '▶';
-    renderTracks();
-    return;
+    updatePlayerUI();
   }
+});
 
-  if (currentIndex !== index) {
-    audio.src = track.url;
-    currentIndex = index;
-    closeLyricsPanel(); // Ferme le panneau précédent si on change de track
-  }
+// TIMELINE SEEKING
+const progressContainer = document.getElementById('progress-container');
+progressContainer.addEventListener('click', (e) => {
+  if (!audio.duration) return;
+  const rect = progressContainer.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  audio.currentTime = pct * audio.duration;
+});
 
-  audio.play().then(() => {
-    isPlaying = true;
-    document.getElementById('btn-play-main').textContent = '⏸';
-    document.getElementById('player-track-name').textContent = track.name;
-    document.getElementById('player-bar').classList.add('visible');
-    
-    // Gestion visuelle du bouton Lyrics dans le lecteur global
-    const btnPlayerLyrics = document.getElementById('btn-player-lyrics');
-    if (track.lyrics && track.lyrics.trim() !== "") {
-      btnPlayerLyrics.style.display = "block";
-    } else {
-      btnPlayerLyrics.style.display = "none";
-      closeLyricsPanel();
-    }
+// VOLUME
+document.getElementById('volume-slider').addEventListener('input', (e) => {
+  audio.volume = e.target.value;
+});
 
-    renderTracks();
-    animateWaveform(true);
-  }).catch(err => {
-    showToast('Erreur lors de la lecture du fichier distant');
-    console.error(err);
-  });
-}
-
-function animateWaveform(active) {
-  const bars = waveformMini.querySelectorAll('.wave-bar');
-  bars.forEach(b => {
-    if (active) {
-      b.style.animation = `vizAnimate ${0.4 + Math.random() * 0.6}s ease-in-out infinite`;
-      b.style.animationDelay = (Math.random() * 0.4) + 's';
-    } else {
-      b.style.animation = 'none';
-      b.style.height = '4px';
-    }
-  });
-}
-
-function formatBytes(bytes, decimals = 2) {
-  if (!+bytes) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
-// ========== LOGIQUE DES PAROLES (LYRICS) ==========
+// ========== LYRICS PANEL IMPLEMENTATION ==========
 const lyricsPanel = document.getElementById('lyrics-panel');
-const lyricsContent = document.getElementById('lyrics-content');
 const btnPlayerLyrics = document.getElementById('btn-player-lyrics');
 const btnCloseLyrics = document.getElementById('btn-close-lyrics');
 
 btnPlayerLyrics.addEventListener('click', () => {
   if (lyricsPanel.classList.contains('open')) {
-    closeLyricsPanel();
+    closeLyrics();
   } else {
-    openLyricsPanel();
+    lyricsPanel.classList.add('open');
+    btnPlayerLyrics.classList.add('active');
   }
 });
 
-btnCloseLyrics.addEventListener('click', closeLyricsPanel);
+btnCloseLyrics.addEventListener('click', closeLyrics);
 
-function openLyricsPanel() {
-  const currentTrack = tracks[currentIndex];
-  if (currentTrack && currentTrack.lyrics) {
-    lyricsContent.textContent = currentTrack.lyrics;
-    lyricsPanel.classList.add('open');
-    btnPlayerLyrics.classList.add('active');
-    // Sur mobile, on empêche le défilement du body en arrière-plan
-    if (window.innerWidth <= 768) {
-      document.body.style.overflow = 'hidden';
-    }
-  }
-}
-
-function closeLyricsPanel() {
+function closeLyrics() {
   lyricsPanel.classList.remove('open');
   btnPlayerLyrics.classList.remove('active');
-  document.body.style.overflow = '';
 }
 
-// ========== GESTION DES UPLOADS ET DU LECTEUR TIMELINE ==========
-document.getElementById('file-input').addEventListener('change', async (e) => {
-  if (!isAdmin) return;
-  const files = e.target.files;
-  if (!files.length) return;
+// ========== UPLOAD & DELETE ACTIONS (SUPABASE BUCKET & DB) ==========
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
 
-  for (let file of files) {
-    showToast(`Upload de ${file.name}...`);
-    
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragging'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragging');
+  if (e.dataTransfer.files.length > 0) {
+    handleFiles(e.dataTransfer.files);
+  }
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) {
+    handleFiles(fileInput.files);
+  }
+});
+
+async function handleFiles(filesList) {
+  showToast("Importation en cours...");
+  for (let i = 0; i < filesList.length; i++) {
+    const file = filesList[i];
+    const cleanName = file.name.replace(/\.[^/.]+$/, ""); 
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-    
-    const { data: storageData, error: storageError } = await supabaseClient.storage
-      .from(BUCKET_NAME)
-      .upload(fileName, file);
+    const fileNameGenerated = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
-    if (storageError) {
-      console.error(storageError);
-      showToast("Erreur d'upload Storage");
+    const lyricsPrompt = prompt(`[Optionnel] Entrez les paroles pour "${cleanName}" (Laissez vide si aucune) :`);
+
+    const { data: uploadData, error: uploadError } = await supabaseClient
+      .storage
+      .from(BUCKET_NAME)
+      .upload(fileNameGenerated, file);
+
+    if (uploadError) {
+      console.error(uploadError);
+      showToast(`Erreur stockage pour : ${file.name}`);
       continue;
     }
 
-    const { data: urlData } = supabaseClient.storage
+    const { data: urlData } = supabaseClient
+      .storage
       .from(BUCKET_NAME)
-      .getPublicUrl(fileName);
+      .getPublicUrl(fileNameGenerated);
 
     const publicUrl = urlData.publicUrl;
 
-    // Invite Admin pour saisir les paroles en option (Méthode 1)
-    const lyricsInput = prompt(`[Optionnel] Saisissez ou collez les paroles pour "${file.name}" : \n(Laissez vide si instrumental)`);
+    const { error: dbError } = await supabaseClient
+      .from('tracks')
+      .insert([
+        { name: cleanName, file_url: publicUrl, lyrics: lyricsPrompt ? lyricsPrompt : null }
+      ]);
 
-    const tempAudio = new Audio(publicUrl);
-    tempAudio.addEventListener('loadedmetadata', async () => {
-      const durationStr = formatTime(tempAudio.duration);
-      const sizeStr = formatBytes(file.size);
-
-      const { error: dbError } = await supabaseClient
-        .from('tracks')
-        .insert([{
-          name: file.name.replace(`.${fileExt}`, ''),
-          url: publicUrl,
-          duration: durationStr,
-          size: sizeStr,
-          storage_path: fileName,
-          lyrics: lyricsInput ? lyricsInput.trim() : null
-        }]);
-
-      if (dbError) {
-        console.error(dbError);
-        showToast("Erreur d'enregistrement BDD");
-      } else {
-        showToast("Morceau ajouté avec succès !");
-      }
-    });
+    if (dbError) {
+      console.error(dbError);
+      showToast(`Erreur Base de données pour : ${file.name}`);
+    } else {
+      showToast(`"${cleanName}" ajouté à la discographie`);
+    }
   }
-});
+}
 
-// Supprimer un morceau
-async function deleteTrack(index) {
-  const track = tracks[index];
-  if (!track) return;
-
-  if (!confirm(`Supprimer définitivement "${track.name}" ?`)) return;
-
+async function deleteTrack(id, fileUrl) {
   showToast("Suppression...");
+  try {
+    const urlParts = fileUrl.split('/');
+    const storagePath = urlParts[urlParts.length - 1];
 
-  if (track.storage_path) {
-    await supabaseClient.storage.from(BUCKET_NAME).remove([track.storage_path]);
-  }
+    await supabaseClient.storage.from(BUCKET_NAME).remove([storagePath]);
 
-  const { error: dbError } = await supabaseClient
-    .from('tracks')
-    .delete()
-    .eq('id', track.id);
+    const { error: dbError } = await supabaseClient
+      .from('tracks')
+      .delete()
+      .eq('id', id);
 
-  if (dbError) {
-    console.error(dbError);
-    showToast("Erreur BDD");
-  } else {
-    showToast("Morceau supprimé");
-    if (currentIndex === index) {
+    if (dbError) throw dbError;
+    
+    showToast("Son supprimé");
+    if (tracks[currentIndex] && tracks[currentIndex].id == id) {
       audio.pause();
       isPlaying = false;
       currentIndex = -1;
       document.getElementById('player-bar').classList.remove('visible');
-      closeLyricsPanel();
+      updatePlayerUI();
     }
-    listenTracks();
+  } catch (err) {
+    console.error(err);
+    showToast("Erreur lors de la suppression");
   }
 }
-
-// Logic player bar controls
-document.getElementById('btn-play-main').addEventListener('click', () => {
-  if (currentIndex === -1 && tracks.length > 0) {
-    playTrack(0);
-  } else if (currentIndex !== -1) {
-    playTrack(currentIndex);
-  }
-});
-
-document.getElementById('btn-prev').addEventListener('click', () => {
-  if (tracks.length === 0) return;
-  let nextIdx = currentIndex - 1;
-  if (nextIdx < 0) nextIdx = tracks.length - 1;
-  playTrack(nextIdx);
-});
-
-document.getElementById('btn-next').addEventListener('click', () => {
-  if (tracks.length === 0) return;
-  let nextIdx = currentIndex + 1;
-  if (nextIdx >= tracks.length) nextIdx = 0;
-  playTrack(nextIdx);
-});
-
-// Sync temps réel audio bar
-audio.addEventListener('timeupdate', () => {
-  if (!audio.duration) return;
-  const pct = (audio.currentTime / audio.duration) * 100;
-  
-  document.getElementById('progress-fill').style.width = `${pct}%`;
-  document.getElementById('progress-thumb').style.left = `${pct}%`;
-  document.getElementById('time-current').textContent = formatTime(audio.currentTime);
-  
-  // Tracklist mini bar progress sync
-  const activeTrack = tracks[currentIndex];
-  if (activeTrack) {
-    const miniBar = document.getElementById(`progress-${activeTrack.id}`);
-    if (miniBar) miniBar.style.width = `${pct}%`;
-  }
-});
-
-audio.addEventListener('loadedmetadata', () => {
-  document.getElementById('time-total').textContent = formatTime(audio.duration);
-});
-
-audio.addEventListener('ended', () => {
-  if (tracks.length === 0) return;
-  let nextIdx = currentIndex + 1;
-  if (nextIdx >= tracks.length) nextIdx = 0;
-  playTrack(nextIdx);
-});
-
-// Interaction clic barre de progression
-const progressContainer = document.getElementById('progress-container');
-progressContainer.addEventListener('click', (e) => {
-  if (!audio.duration) return;
-  const rect = progressContainer.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const width = rect.width;
-  const pct = clickX / width;
-  audio.currentTime = pct * audio.duration;
-});
-
-// Slider Volume
-document.getElementById('volume-slider').addEventListener('input', (e) => {
-  audio.volume = e.target.value;
-});
 </script>
 </body>
 </html>
