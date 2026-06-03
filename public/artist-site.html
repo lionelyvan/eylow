@@ -849,9 +849,7 @@
   }
 </style>
 
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -894,7 +892,7 @@
       <em>ESSENCE</em>
     </h2>
     <p class="about-text reveal" id="about-text1">
-      Musicien depuis l'enfance, je compose des univers sonores qui transcendent les genres. Ma musique est un voyage entre la mélodie et l'électronique, l'ambient et les rythmes organiques du rap français et du cameroun ma terre natale.
+      Musicien depuis l'enfance, je compose des univers sonores qui transcendents les genres. Ma musique est un voyage entre la mélodie et l'électronique, l'ambient et les rythmes organiques du rap français et du cameroun ma terre natale.
     </p>
     <p class="about-text reveal" id="about-text2">
       Chaque son est une décision consciente, un choix délibéré.
@@ -995,19 +993,16 @@
 </div>
 
 <script>
-// ========== CONFIGURATION FIREBASE ==========
-const firebaseConfig = {
-  apiKey: "TON_API_KEY",
-  authDomain: "TON_AUTH_DOMAIN",
-  projectId: "TON_PROJECT_ID",
-  storageBucket: "TON_STORAGE_BUCKET",
-  messagingSenderId: "TON_MESSAGING_SENDER_ID",
-  appId: "TON_APP_ID"
-};
+// ========== CONFIGURATION SUPABASE ==========
+let RAW_URL = "https://ohnchjlbfzsfbdoytohm.supabase.co"; 
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9obmNoamxiZnpzZmJkb3l0b2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODAzMjQsImV4cCI6MjA5NjA1NjMyNH0.UaGJYYjh2P89BrEy8JRtqofkLd3dyKfzA43wgC5IzD0";
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+const SUPABASE_URL = RAW_URL.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Nom du bucket synchronisé avec ton dashboard Supabase
+const BUCKET_NAME = "musiques";
 
 // ========== SECURITY & ADMIN MODE ==========
 const PASSKEY = "eylow123";
@@ -1100,17 +1095,34 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// Écoute en temps réel les changements dans Firestore
-db.collection("tracks").orderBy("timestamp", "asc").onSnapshot(snapshot => {
-  tracks = [];
-  snapshot.forEach(doc => {
-    tracks.push({ id: doc.id, ...doc.data() });
-  });
-  renderTracks();
-}, err => {
-  console.error("Erreur Firestore : ", err);
-  showToast("Erreur lors de la récupération des pistes");
-});
+async function listenTracks() {
+  const { data, error } = await supabaseClient
+    .from('tracks')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error("Erreur de fetch :", error);
+    showToast("Erreur de synchronisation");
+  } else {
+    tracks = data || [];
+    renderTracks();
+  }
+
+  supabaseClient
+    .channel('public:tracks')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tracks' }, async () => {
+       const { data: updatedData } = await supabaseClient
+        .from('tracks')
+        .select('*')
+        .order('created_at', { ascending: true });
+       tracks = updatedData || [];
+       renderTracks();
+    })
+    .subscribe();
+}
+
+listenTracks();
 
 function renderTracks() {
   const list = document.getElementById('track-list');
@@ -1211,7 +1223,66 @@ function animateWaveform(active) {
   });
 }
 
-function deleteTrack(index) {
+function formatBytes(bytes, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  if (!isAdmin) return;
+  const files = e.target.files;
+  if (!files.length) return;
+
+  for (let file of files) {
+    showToast(`Upload de ${file.name}...`);
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+    
+    // Changement ici : utilisation de la variable BUCKET_NAME ("musiques")
+    const { data: storageData, error: storageError } = await supabaseClient.storage
+      .from(BUCKET_NAME)
+      .upload(fileName, file);
+
+    if (storageError) {
+      console.error(storageError);
+      showToast("Erreur d'upload Storage");
+      continue;
+    }
+
+    // Changement ici également
+    const { data: urlData } = supabaseClient.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    const tempAudio = new Audio(publicUrl);
+    tempAudio.addEventListener('loadedmetadata', async () => {
+      const durationStr = formatTime(tempAudio.duration);
+      const sizeStr = formatBytes(file.size);
+
+      const { error: dbError } = await supabaseClient
+        .from('tracks')
+        .insert([
+          { name: file.name, url: publicUrl, storage_path: fileName, size: sizeStr, duration: durationStr }
+        ]);
+
+      if (dbError) {
+        console.error(dbError);
+        showToast("Erreur d'enregistrement Base de données");
+      } else {
+        showToast("Morceau ajouté avec succès");
+      }
+    });
+  }
+});
+
+async function deleteTrack(index) {
   if (!isAdmin) return;
   const track = tracks[index];
   
@@ -1226,19 +1297,28 @@ function deleteTrack(index) {
 
   showToast('Suppression en cours...');
 
-  // 1. Supprime le fichier physique du Storage
-  storage.refFromURL(track.url).delete().then(() => {
-    // 2. Supprime la référence dans Firestore
-    return db.collection("tracks").doc(track.id).delete();
-  }).then(() => {
-    showToast('Track supprimée avec succès');
-  }).catch(err => {
-    console.error("Erreur de suppression : ", err);
+  // Changement ici : nettoyage dans le bon bucket ("musiques")
+  const { error: storageError } = await supabaseClient.storage
+    .from(BUCKET_NAME)
+    .remove([track.storage_path]);
+
+  if (storageError) {
+    console.error("Erreur storage delete:", storageError);
+  }
+
+  const { error: dbError } = await supabaseClient
+    .from('tracks')
+    .delete()
+    .eq('id', track.id);
+
+  if (dbError) {
+    console.error("Erreur DB delete:", dbError);
     showToast("Erreur lors de la suppression");
-  });
+  } else {
+    showToast('Track supprimée avec succès');
+  }
 }
 
-// Audio Engine Native Events
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = (audio.currentTime / audio.duration) * 100;
@@ -1264,99 +1344,35 @@ audio.addEventListener('ended', () => {
   }
 });
 
-// Player controls UI events
 document.getElementById('btn-play-main').addEventListener('click', () => {
-  if (currentIndex === -1 && tracks.length > 0) { playTrack(0); return; }
-  if (isPlaying) {
-    audio.pause();
-    isPlaying = false;
-    document.getElementById('btn-play-main').textContent = '▶';
-    animateWaveform(false);
-  } else {
-    audio.play().catch(() => showToast("Impossible de lancer la lecture"));
-    isPlaying = true;
-    document.getElementById('btn-play-main').textContent = '⏸';
-    animateWaveform(true);
+  if (currentIndex === -1 && tracks.length > 0) {
+    playTrack(0);
+  } else if (currentIndex !== -1) {
+    playTrack(currentIndex);
   }
-  renderTracks();
 });
 
 document.getElementById('btn-prev').addEventListener('click', () => {
-  if (currentIndex > 0) playTrack(currentIndex - 1);
+  if (currentIndex > 0) {
+    playTrack(currentIndex - 1);
+  }
 });
 
 document.getElementById('btn-next').addEventListener('click', () => {
-  if (currentIndex < tracks.length - 1) playTrack(currentIndex + 1);
+  if (currentIndex < tracks.length - 1) {
+    playTrack(currentIndex + 1);
+  }
 });
 
 document.getElementById('progress-container').addEventListener('click', e => {
+  if (!audio.duration) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const pct = (e.clientX - rect.left) / rect.width;
-  if (audio.duration) audio.currentTime = pct * audio.duration;
+  audio.currentTime = pct * audio.duration;
 });
 
 document.getElementById('volume-slider').addEventListener('input', e => {
   audio.volume = e.target.value;
-});
-
-// ========== SECURE FILE UPLOAD TO STORAGE & FIRESTORE ==========
-const fileInput = document.getElementById('file-input');
-const uploadZone = document.getElementById('upload-zone');
-
-function handleFiles(files) {
-  if (!isAdmin) return;
-  
-  Array.from(files).forEach(file => {
-    if (!file.type.startsWith('audio/')) return;
-    
-    showToast(`Téléchargement de : ${file.name}`);
-    const sizeMB = (file.size / 1048576).toFixed(1) + ' MB';
-    const storageRef = storage.ref(`musiques/${Date.now()}-${file.name}`);
-
-    // Étape 1 : Envoyer sur Firebase Storage
-    storageRef.put(file).then(snapshot => {
-      return snapshot.ref.getDownloadURL();
-    }).then(downloadURL => {
-      // Obtenir la durée réelle du son
-      const tempAudio = new Audio(downloadURL);
-      tempAudio.addEventListener('loadedmetadata', () => {
-        const durationStr = formatTime(tempAudio.duration);
-        
-        // Étape 2 : Sauvegarder dans Firestore pour tous les visiteurs
-        db.collection("tracks").add({
-          name: file.name,
-          url: downloadURL,
-          duration: durationStr,
-          size: sizeMB,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(() => {
-          showToast(`"${file.name}" est en ligne et visible par tous !`);
-        });
-      });
-    }).catch(err => {
-      console.error("Erreur d'upload : ", err);
-      showToast("Erreur lors de la mise en ligne");
-    });
-  });
-}
-
-fileInput.addEventListener('change', e => {
-  handleFiles(e.target.files);
-});
-
-uploadZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  uploadZone.classList.add('dragging');
-});
-
-uploadZone.addEventListener('dragleave', () => {
-  uploadZone.classList.remove('dragging');
-});
-
-uploadZone.addEventListener('drop', e => {
-  e.preventDefault();
-  uploadZone.classList.remove('dragging');
-  handleFiles(e.dataTransfer.files);
 });
 </script>
 </body>
