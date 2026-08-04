@@ -1,0 +1,192 @@
+.section {
+  position: relative;
+  padding: 140px clamp(20px, 5vw, 56px) 100px;
+  border-top: 1px solid var(--gris);
+}
+
+.header {
+  max-width: 1280px;
+  margin: 0 auto 56px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 5.5vw, 68px);
+  line-height: 0.92;
+  color: var(--blanc);
+}
+
+.heading span {
+  color: var(--accent);
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+}
+
+.list {
+  max-width: 1280px;
+  margin: 0 auto;
+  border-top: 1px solid var(--gris);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto auto;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 4px;
+  border-bottom: 1px solid var(--gris);
+  transition: background 0.25s;
+  position: relative;
+}
+
+.row:hover {
+  background: rgba(240, 236, 228, 0.02);
+}
+
+.rowActive {
+  background: rgba(200, 255, 0, 0.04);
+}
+
+.playBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--gris3);
+  background: transparent;
+  color: var(--blanc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+  flex-shrink: 0;
+}
+.row:hover .playBtn,
+.rowActive .playBtn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rowActive .playBtn {
+  background: rgba(200, 255, 0, 0.08);
+}
+
+.trackInfo {
+  min-width: 0;
+}
+
+.trackName {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.01em;
+  color: var(--blanc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackMeta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blanc2);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.iconBtn {
+  background: transparent;
+  border: 1px solid var(--gris2);
+  color: var(--blanc2);
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.25s, color 0.25s;
+}
+.iconBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.iconBtnDanger:hover {
+  border-color: var(--rouge);
+  color: var(--rouge);
+}
+
+.miniViz {
+  width: 60px;
+  height: 28px;
+}
+
+.empty {
+  padding: 60px 4px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+}
+
+.uploadZone {
+  max-width: 1280px;
+  margin: 40px auto 0;
+  border: 1.5px dashed var(--gris3);
+  padding: 36px 20px;
+  text-align: center;
+  transition: border-color 0.25s, background 0.25s;
+  cursor: pointer;
+}
+
+.uploadZoneActive {
+  border-color: var(--accent);
+  background: rgba(200, 255, 0, 0.04);
+}
+
+.uploadLabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.progressTrack {
+  max-width: 1280px;
+  margin: 14px auto 0;
+  height: 3px;
+  background: var(--gris2);
+}
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 44px 1fr auto;
+  }
+  .miniViz {
+    display: none;
+  }
+}

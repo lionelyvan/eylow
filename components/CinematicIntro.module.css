@@ -1,0 +1,134 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--noir);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(100% / 6);
+  background: var(--noir);
+  z-index: 5;
+}
+
+.scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(240, 236, 228, 0.025) 0px,
+    rgba(240, 236, 228, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  z-index: 2;
+}
+
+.wordmarkRow {
+  display: flex;
+}
+
+.letter {
+  font-family: var(--font-display);
+  font-size: clamp(52px, 13vw, 148px);
+  line-height: 0.85;
+  color: var(--blanc);
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+
+.letterGlitch {
+  text-shadow:
+    2px 0 var(--accent2),
+    -2px 0 var(--accent);
+}
+
+.tagline {
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 1.6vw, 13px);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+  text-align: center;
+}
+
+.eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 20px;
+}
+
+.eqBar {
+  width: 3px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.progressRow {
+  position: absolute;
+  bottom: clamp(24px, 6vh, 56px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 5vw, 56px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--blanc2);
+  z-index: 3;
+}
+
+.progressBarTrack {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gris2);
+}
+
+.progressBarFill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.skip {
+  position: absolute;
+  top: clamp(20px, 4vh, 40px);
+  right: clamp(20px, 5vw, 56px);
+  z-index: 4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+  background: transparent;
+  border: 1px solid var(--gris3);
+  padding: 8px 16px;
+  transition: border-color 0.25s var(--ease-out), color 0.25s var(--ease-out);
+}
+
+.skip:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

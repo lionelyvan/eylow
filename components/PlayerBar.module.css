@@ -1,0 +1,152 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  background: rgba(10, 10, 10, 0.9);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--gris);
+  padding: 12px clamp(16px, 4vw, 32px);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+}
+
+.trackInfo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.viz {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--blanc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  color: var(--blanc2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+.iconBtn:hover {
+  color: var(--blanc);
+}
+
+.playBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--noir);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  transition: transform 0.2s;
+}
+.playBtn:hover {
+  transform: scale(1.06);
+}
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+  width: 100%;
+  max-width: 320px;
+}
+
+.time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blanc2);
+  width: 38px;
+  flex-shrink: 0;
+}
+
+.seek {
+  flex: 1;
+  appearance: none;
+  height: 3px;
+  background: var(--gris2);
+  outline: none;
+  cursor: pointer;
+}
+.seek::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.seek::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.volumeRow {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 900px) {
+  .volumeRow {
+    display: flex;
+  }
+}
+
+.volume {
+  appearance: none;
+  width: 70px;
+  height: 3px;
+  background: var(--gris2);
+  outline: none;
+  cursor: pointer;
+}
+.volume::-webkit-slider-thumb {
+  appearance: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blanc2);
+  cursor: pointer;
+}
+
+@media (max-width: 680px) {
+  .bar {
+    grid-template-columns: 1fr auto;
+  }
+  .timeRow {
+    display: none;
+  }
+}

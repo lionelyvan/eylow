@@ -1,0 +1,93 @@
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px clamp(20px, 5vw, 56px);
+  transition: background 0.4s var(--ease-out), border-color 0.4s var(--ease-out), backdrop-filter 0.4s;
+  border-bottom: 1px solid transparent;
+}
+
+.navScrolled {
+  background: rgba(8, 8, 8, 0.75);
+  backdrop-filter: blur(10px);
+  border-bottom-color: var(--gris);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  color: var(--blanc);
+}
+
+.logo span {
+  color: var(--accent);
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 3vw, 36px);
+}
+
+.link {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blanc2);
+  position: relative;
+  padding-bottom: 3px;
+}
+
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s var(--ease-out);
+}
+
+.link:hover {
+  color: var(--blanc);
+}
+.link:hover::after {
+  width: 100%;
+}
+
+.adminDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 5px 10px;
+  text-transform: uppercase;
+}
+
+.menuBtn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--blanc);
+}
+
+@media (max-width: 720px) {
+  .links {
+    display: none;
+  }
+  .menuBtn {
+    display: inline-flex;
+  }
+}
