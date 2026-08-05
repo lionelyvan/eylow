@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Menu, X, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Menu, X, ShieldCheck, LogOut } from "lucide-react";
 import styles from "./Nav.module.css";
 import { useAdmin } from "@/context/AdminContext";
 
@@ -14,7 +14,8 @@ const LINKS = [
 export default function Nav({ artistName }: { artistName: string }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAdmin, openLogin } = useAdmin();
+  const { isAdmin, openLogin, logout } = useAdmin();
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -23,9 +24,25 @@ export default function Nav({ artistName }: { artistName: string }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Sur mobile il n'y a pas de double-clic fiable : on déclenche aussi
+  // l'ouverture de la connexion admin via un appui long (~600ms) sur le logo.
+  const startPress = () => {
+    pressTimer.current = setTimeout(() => openLogin(), 600);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  };
+
   return (
     <nav className={`${styles.nav} ${scrolled ? styles.navScrolled : ""}`}>
-      <a href="#top" className={styles.logo} data-cursor="interactive">
+      <a
+        href="#top"
+        className={styles.logo}
+        data-cursor="interactive"
+        onTouchStart={startPress}
+        onTouchEnd={cancelPress}
+        onTouchMove={cancelPress}
+      >
         {artistName.slice(0, artistName.length - 1)}
         <span>{artistName.slice(-1)}</span>
       </a>
@@ -37,9 +54,16 @@ export default function Nav({ artistName }: { artistName: string }) {
           </a>
         ))}
         {isAdmin ? (
-          <span className={styles.adminDot}>
-            <ShieldCheck size={12} /> Admin
-          </span>
+          <button
+            onClick={logout}
+            className={styles.adminDot}
+            style={{ background: "none", cursor: "pointer" }}
+            title="Se déconnecter"
+            aria-label="Se déconnecter du mode admin"
+            data-cursor="interactive"
+          >
+            <ShieldCheck size={12} /> Admin <LogOut size={12} style={{ marginLeft: 2 }} />
+          </button>
         ) : (
           <button
             onDoubleClick={openLogin}
@@ -91,6 +115,34 @@ export default function Nav({ artistName }: { artistName: string }) {
               {l.label}
             </a>
           ))}
+
+          {/* Accès admin dans le menu mobile : appui long sur le logo pour
+              se connecter (voir startPress ci-dessus), et bouton explicite
+              de déconnexion ici si déjà connecté. */}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                logout();
+                setMobileOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--accent)",
+                background: "none",
+                border: "1px solid var(--accent)",
+                padding: "10px 14px",
+                width: "fit-content",
+              }}
+            >
+              <LogOut size={14} /> Déconnexion admin
+            </button>
+          )}
         </div>
       )}
     </nav>
