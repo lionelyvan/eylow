@@ -17,6 +17,10 @@ export default function Nav({ artistName }: { artistName: string }) {
   const { isAdmin, openLogin, logout } = useAdmin();
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Garde défensive : si artistName arrive vide/null (settings Supabase
+  // incomplets), on retombe sur "Eylow" plutôt que de crasher sur .slice().
+  const safeName = artistName && artistName.length > 0 ? artistName : "Eylow";
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
@@ -43,8 +47,8 @@ export default function Nav({ artistName }: { artistName: string }) {
         onTouchEnd={cancelPress}
         onTouchMove={cancelPress}
       >
-        {artistName.slice(0, artistName.length - 1)}
-        <span>{artistName.slice(-1)}</span>
+        {safeName.slice(0, safeName.length - 1)}
+        <span>{safeName.slice(-1)}</span>
       </a>
 
       <div className={styles.links}>

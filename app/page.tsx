@@ -11,9 +11,18 @@ async function getInitialData(): Promise<{ tracks: Track[]; settings: SiteSettin
       supabase.from("tracks").select("*").order("created_at", { ascending: false }),
       supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
     ]);
+
+    // Important : on ne garde que les clés de settingsRow qui ont une vraie
+    // valeur (pas null/undefined/""), sinon une colonne vide en base écrase
+    // silencieusement la valeur par défaut et fait planter les composants
+    // qui s'attendent à une string (ex: artistName.slice(...) dans Nav.tsx).
+    const cleanedRow = Object.fromEntries(
+      Object.entries(settingsRow ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== "")
+    );
+
     return {
       tracks: tracks ?? [],
-      settings: { ...DEFAULT_SETTINGS, ...(settingsRow ?? {}) },
+      settings: { ...DEFAULT_SETTINGS, ...cleanedRow },
     };
   } catch {
     return { tracks: [], settings: DEFAULT_SETTINGS };
