@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+:root {
+  /* --- Fond : noir profond, jamais un vrai #000 plat pour garder de la matière --- */
+  --noir: #000000;
+  --noir2: #0b0b10;
+  --noir3: #131319;
+  --gris: rgba(255, 255, 255, 0.08);
+  --gris2: rgba(255, 255, 255, 0.14);
+  --gris3: rgba(255, 255, 255, 0.28);
+  --blanc: #f5f5f7;
+  --blanc2: rgba(245, 245, 247, 0.62);
+
+  /* --- Symbiose rose / violet, façon Apple Music --- */
+  --rose: #ff2d78;
+  --rose2: #ff5ea8;
+  --violet: #8b5cf6;
+  --violet2: #6d28d9;
+  --accent: #ff3fa4; /* alias historique, utilisé partout dans les composants */
+  --accent2: #8b5cf6;
+  --rouge: #ff453a;
+
+  --gradient-brand: linear-gradient(135deg, var(--rose) 0%, #c026d3 45%, var(--violet) 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(255, 45, 120, 0.35) 0%, rgba(139, 92, 246, 0.35) 100%);
+  --gradient-text: linear-gradient(120deg, #ffffff 0%, #ffd9ec 30%, var(--rose2) 55%, var(--violet) 100%);
+
+  /* Une seule famille de police pour tout le site (aliasée 3x pour ne pas
+     casser les composants existants qui référencent --font-display / --font-mono) :
+     Apple n'expose pas SF Pro au web, donc on demande la vraie SF Pro sur les
+     appareils Apple via -apple-system, et Inter (même géométrie, très proche)
+     partout ailleurs. */
+  --font-body: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: var(--font-body);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --radius-full: 999px;
+
+  --shadow-glow: 0 8px 40px rgba(255, 45, 120, 0.18), 0 4px 16px rgba(139, 92, 246, 0.14);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--noir);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: var(--noir);
+  color: var(--blanc);
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: -0.011em;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Halo ambiant fixe, très doux, qui donne au fond noir sa "matière" rose/violette
+   façon écran "En cours de lecture" d'Apple Music, sans jamais éclaircir le fond. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60vw 60vw at 12% -5%, rgba(255, 45, 120, 0.16), transparent 60%),
+    radial-gradient(55vw 55vw at 105% 15%, rgba(139, 92, 246, 0.14), transparent 60%),
+    radial-gradient(70vw 50vw at 50% 115%, rgba(192, 38, 211, 0.1), transparent 60%),
+    var(--noir);
+}
+
+::selection {
+  background: var(--rose);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gris2);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--noir);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rose);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* Grain très subtil pour éviter l'effet "plat" du noir numérique */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .use-custom-cursor,
+  .use-custom-cursor a,
+  .use-custom-cursor button {
+    cursor: none;
+  }
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 64px);
+}
+
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Texte en dégradé rose -> violet, réutilisé sur les titres clés */
+.gradientText {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Carte "verre" Apple : fond translucide + flou, base commune réutilisée
+   par le nav, la lecture en cours, les panneaux et les modales. */
+.glass {
+  background: rgba(20, 18, 26, 0.55);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--rose2);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
