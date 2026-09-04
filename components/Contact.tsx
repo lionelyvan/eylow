@@ -71,7 +71,7 @@ export function Footer({ artistName }: { artistName: string }) {
       <span>
         © {new Date().getFullYear()} {artistName}. Tous droits réservés.
       </span>
-      <span>Build by <a href="https://lyvnlab-co.vercel.app" target="_blank" rel="noopener noreferrer" data-cursor="interactive">Lyvnlab</a></span>
+      <span>Build by <a href="https://obus-co.vercel.app" target="_blank" rel="noopener noreferrer" data-cursor="interactive">OBUS</a></span>
     </footer>
   );
 }
